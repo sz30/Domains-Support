@@ -43,15 +43,27 @@
             </div>
         </div>
 
-        <el-table :data="domains" border style="width: 100%" class="custom-table">
-            <el-table-column label="域名" align="center" sortable>
+        <div class="table-operations">
+            <el-input v-model="searchQuery" placeholder="搜索域名、域名商或备注..." :prefix-icon="Search" clearable
+                class="search-input" />
+        </div>
+
+        <el-table :data="paginatedDomains" border style="width: 100%" class="custom-table">
+            <el-table-column type="index" label="序号" width="60" align="center">
                 <template #default="scope">
-                    <a :href="'https://' + scope.row.domain" target="_blank" class="link">{{ scope.row.domain }}</a>
+                    {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
+                </template>
+            </el-table-column>
+            <el-table-column label="域名" align="center" sortable prop="domain">
+                <template #default="scope">
+                    <a :href="'https://' + scope.row.domain" target="_blank" class="link"
+                        v-html="highlightText(scope.row.domain)"></a>
                 </template>
             </el-table-column>
             <el-table-column label="域名商" align="center" sortable prop="registrar">
                 <template #default="scope">
-                    <a :href="scope.row.registrar_link" target="_blank" class="link">{{ scope.row.registrar }}</a>
+                    <a :href="scope.row.registrar_link" target="_blank" class="link"
+                        v-html="highlightText(scope.row.registrar)"></a>
                 </template>
             </el-table-column>
             <el-table-column prop="registrar_date" label="注册时间" align="center" sortable />
@@ -72,7 +84,11 @@
                     </span>
                 </template>
             </el-table-column>
-            <el-table-column prop="memo" label="备注" align="center" sortable />
+            <el-table-column prop="memo" label="备注" align="center" sortable>
+                <template #default="scope">
+                    <span v-html="highlightText(scope.row.memo)"></span>
+                </template>
+            </el-table-column>
             <el-table-column label="操作" width="200" align="center">
                 <template #default="scope">
                     <el-button type="primary" size="small" :icon="Edit" @click="handleEdit(scope.row)">修改</el-button>
@@ -80,6 +96,12 @@
                 </template>
             </el-table-column>
         </el-table>
+
+        <div class="pagination-container">
+            <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize"
+                :page-sizes="[20, 50, 100, 200]" :background="true" layout="total, sizes, prev, pager, next, jumper"
+                :total="filteredDomains.length" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        </div>
 
         <DomainDialog v-model:visible="dialogVisible" :is-edit="isEdit" :edit-data="editData"
             @submit="handleDialogSubmit" />
@@ -91,7 +113,7 @@
         <footer class="footer">
             <div class="footer-content">
                 <div class="copyright">
-                    <span>© 2025 Domains-Support v1.0.6</span>
+                    <span>© 2025 Domains-Support v1.0.8</span>
                     <span class="separator">|</span>
                     <span>作者：饭奇骏</span>
                     <span class="separator">|</span>
@@ -118,15 +140,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ArrowDown, Delete, Download, Edit, Moon, Plus, Refresh, Search, Setting, Sunny, SwitchButton, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Setting, Refresh, Plus, Edit, Delete, SwitchButton, Sunny, Moon, ArrowDown, Upload, Download } from '@element-plus/icons-vue'
-import { useAuth } from '../utils/auth'
-import DomainDialog from '../components/DomainDialog.vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { createDomain, deleteDomain, updateDomain, type DomainData } from '../api/domains'
 import AlertConfigDialog from '../components/AlertConfigDialog.vue'
+import DomainDialog from '../components/DomainDialog.vue'
 import ImportDialog from '../components/ImportDialog.vue'
-import { createDomain, updateDomain, deleteDomain, type DomainData } from '../api/domains'
+import { useAuth } from '../utils/auth'
 
 type Domain = DomainData
 
@@ -150,6 +172,47 @@ const domains = ref<Domain[]>([])
 const alertDays = ref(30)
 const alertConfig = ref<AlertConfig>()
 const refreshing = ref(false)
+
+// 搜索和分页状态
+const searchQuery = ref('')
+const currentPage = ref(1)
+const pageSize = ref(20)
+
+// 过滤后的域名列表
+const filteredDomains = computed(() => {
+    if (!searchQuery.value) return domains.value
+    const query = searchQuery.value.toLowerCase()
+    return domains.value.filter(domain => 
+        domain.domain.toLowerCase().includes(query) ||
+        domain.registrar?.toLowerCase().includes(query) ||
+        domain.memo?.toLowerCase().includes(query)
+    )
+})
+
+// 分页后的域名列表
+const paginatedDomains = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    return filteredDomains.value.slice(start, end)
+})
+
+// 高亮匹配文本
+const highlightText = (text: string | undefined) => {
+    if (!text) return ''
+    if (!searchQuery.value) return text
+    const query = searchQuery.value
+    const regex = new RegExp(`(${query})`, 'gi')
+    return text.replace(regex, '<span class="highlight">$1</span>')
+}
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val
+    currentPage.value = 1
+}
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val
+}
 
 // 对话框相关的状态
 const dialogVisible = ref(false)
@@ -577,6 +640,41 @@ onMounted(() => {
     margin-left: 4px;
 }
 
+.table-operations {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.search-input {
+    width: 300px;
+    transition: all 0.3s;
+}
+
+.search-input:hover, .search-input:focus-within {
+    width: 350px;
+}
+
+.pagination-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 20px;
+}
+
+:deep(.highlight) {
+    color: #f56c6c;
+    font-weight: bold;
+    background-color: rgba(245, 108, 108, 0.1);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.dark-mode :deep(.highlight) {
+    color: #ff9090;
+    background-color: rgba(255, 144, 144, 0.2);
+}
+
 .custom-table {
     margin-bottom: 60px;
     overflow-x: auto;
@@ -587,7 +685,7 @@ onMounted(() => {
 }
 
 .dark-mode .custom-table {
-    background: #2d2d2d;
+    background: #1d1e1f;
     color: #ffffff;
 }
 
@@ -600,13 +698,15 @@ onMounted(() => {
 }
 
 .dark-mode :deep(.el-table) {
-    --el-table-border-color: #404040;
-    --el-table-header-bg-color: #2d2d2d;
-    --el-table-row-hover-bg-color: #404040;
-    --el-table-current-row-bg-color: #404040;
+    --el-table-border-color: #363637;
+    --el-table-header-bg-color: #252526;
+    --el-table-row-hover-bg-color: #2c2c2d;
+    --el-table-current-row-bg-color: #2c2c2d;
     --el-table-header-text-color: #ffffff;
     --el-table-text-color: #ffffff;
-    --el-table-bg-color: #2d2d2d;
+    --el-table-bg-color: #1d1e1f;
+    --el-table-tr-bg-color: #1d1e1f;
+    --el-table-expanded-cell-bg-color: #1d1e1f;
 }
 
 .link {
@@ -640,9 +740,10 @@ onMounted(() => {
 }
 
 .dark-mode :deep(.el-table th) {
-    background-color: #2d2d2d !important;
+    background-color: #252526 !important;
     color: #ffffff !important;
     font-weight: bold;
+    border-bottom-color: #363637;
 }
 
 :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
@@ -650,7 +751,7 @@ onMounted(() => {
 }
 
 .dark-mode :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-    background-color: #333333;
+    background-color: #252526;
 }
 
 .el-button {
@@ -846,14 +947,200 @@ onMounted(() => {
     .header-buttons {
         gap: 5px;
     }
+}
+</style>
+
+<style>
+/* 全局暗黑模式样式 */
+.dark {
+    --el-bg-color: #1a1a1a;
+    --el-bg-color-overlay: #2d2d2d;
+    --el-text-color-primary: #ffffff;
+    --el-text-color-regular: #e0e0e0;
+    --el-border-color: #404040;
+    --el-border-color-light: #404040;
+    --el-border-color-lighter: #404040;
+    --el-border-color-extra-light: #404040;
+    --el-fill-color-blank: #2d2d2d;
+    --el-mask-color: rgba(0, 0, 0, 0.8);
+}
+
+.dark .el-dialog {
+    --el-dialog-bg-color: #2d2d2d;
+    --el-dialog-title-font-color: #ffffff;
+}
+
+/* 弹出对话框圆角样式 */
+.el-dialog {
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.el-dialog__header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.el-dialog__body {
+    border-radius: 0 0 12px 12px !important;
+}
+
+/* 背景模糊效果 */
+.el-overlay {
+    backdrop-filter: blur(5px) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .el-card {
+    --el-card-bg-color: #2d2d2d;
+}
+
+/* 移除按钮的暗黑模式样式 */
+.dark .el-button {
+    --el-button-bg-color: var(--el-color-primary);
+    --el-button-border-color: var(--el-color-primary);
+    --el-button-hover-bg-color: var(--el-color-primary-light-3);
+    --el-button-hover-border-color: var(--el-color-primary-light-3);
+}
+
+.dark .el-button--danger {
+    --el-button-bg-color: var(--el-color-danger);
+    --el-button-border-color: var(--el-color-danger);
+    --el-button-hover-bg-color: var(--el-color-danger-light-3);
+    --el-button-hover-border-color: var(--el-color-danger-light-3);
+}
+
+.dark .el-input {
+    --el-input-bg-color: #2d2d2d;
+    --el-input-text-color: #ffffff;
+    --el-input-border-color: #404040;
+}
+
+.dark .el-select {
+    --el-select-border-color-hover: #505050;
+    --el-select-input-focus-border-color: #505050;
+}
+
+.el-button.el-button--small {
+    padding: 6px 12px;
+    /* 默认是 8px 15px */
+    font-size: 12px;
+    /* 默认是 13px */
+}
+
+/* Dark mode pagination fixes */
+.dark .el-pagination.is-background .el-pager li:not(.is-active) {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark .el-pagination.is-background .btn-prev,
+.dark .el-pagination.is-background .btn-next {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark .el-pagination.is-background .el-pager li:not(.is-active):hover {
+    color: #409EFF;
+    color: #dcdfe6;
+    margin: 0 2px;
+}
+
+.social-links {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.social-link {
+    color: #606266;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+}
+
+.social-link:hover {
+    color: #409EFF;
+    transform: translateY(-2px);
+}
+
+.social-icon {
+    width: 20px;
+    height: 20px;
+}
+
+@media (max-width: 768px) {
+    .home-container {
+        padding: 15px;
+        padding-bottom: 70px;
+    }
+
+    .header {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .header h2 {
+        font-size: 1.2rem;
+    }
+
+    .custom-table {
+        margin-bottom: 15px;
+    }
 
     .footer {
-        padding: 8px;
-        min-height: 45px;
+        padding: 10px;
+        height: auto;
+        min-height: 50px;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
     }
 
     .copyright {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
+        gap: 6px;
+    }
+
+    .social-links {
+        gap: 10px;
+    }
+
+    .social-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    :deep(.el-table) {
+        font-size: 0.9rem;
+    }
+
+    :deep(.el-table th),
+    :deep(.el-table td) {
+        padding: 8px 4px;
+    }
+
+    :deep(.el-button) {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .home-container {
+        padding: 10px;
+        padding-bottom: 60px;
+    }
+
+    .header {
+        padding: 10px;
+    }
+
+    .header-buttons {
+        gap: 5px;
     }
 }
 </style>
@@ -934,4 +1221,23 @@ onMounted(() => {
     font-size: 12px;
     /* 默认是 13px */
 }
-</style>
+
+/* Dark mode pagination fixes */
+.dark .el-pagination.is-background .el-pager li:not(.is-active) {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark .el-pagination.is-background .btn-prev,
+.dark .el-pagination.is-background .btn-next {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark .el-pagination.is-background .el-pager li:not(.is-active):hover {
+    color: #409EFF;
+}
+
+.dark .el-pagination__jump {
+    color: #ffffff;
+}</style>
