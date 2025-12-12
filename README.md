@@ -8,7 +8,7 @@
 
 
 
-一个基于 Cloudflare Pages 的域名管理系统，帮助您轻松管理和监控多个域名的状态、到期时间等信息。
+一个域名管理系统，帮助您轻松管理和监控多个域名的状态、到期时间等信息。
 
 ## 功能特点
 
@@ -64,49 +64,7 @@
 ### 前置要求
 
 - GitHub 账号
-- Cloudflare 账号
-
-### 安装步骤
-
-1. Fork 本仓库到您的 GitHub 账号
-
-2. 在 Cloudflare Pages 中创建新项目
-   - 登录 Cloudflare Dashboard
-   - 进入 Pages 页面
-   - 点击 "Create a project"
-   - 选择 "Connect to Git"
-   - 选择您 fork 的仓库
-
-3. 配置构建设置
-   - 构建命令：`npm run build`
-   - 构建输出目录：`dist`
-   - 环境变量：
-     ```
-     USER=your_username
-     PASS=your_password
-     API_TOKEN=your_api_token
-     ```
-
-4. 创建 D1 数据库
-   - 在 Cloudflare Dashboard 中进入 D1 页面
-   - 创建新数据库，命名为 `domains-db`
-   - 复制数据库 ID
-
-5. 配置数据库
-   - 在 Cloudflare Pages 项目设置中添加 D1 数据库绑定
-   - 绑定名称：`DB`
-   - 数据库 ID：粘贴之前复制的 ID
-
-6. 初始化数据库
-   - 在 Cloudflare Dashboard 中进入 D1 页面
-   - 选择您的数据库
-   - 执行 `schema.sql` 中的 SQL 语句
-
-7. 部署
-   - 点击 "Save and Deploy"
-   - 等待部署完成
-
-部署完成后，您可以通过 Cloudflare Pages 提供的域名访问系统。
+- VPS
 
 ## API 文档
 
@@ -180,15 +138,5 @@
 ## 许可证
 
 本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解更多详情。
-
-## 赞助
-
-| 赞助人                                                                                                                 | 赞助方式                 | 备注 |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---- |
-| [ZMTO](https://www.zmto.com/) | 免费提供服务器 | - |
-
-## 作者
-
-饭奇骏 ([@frankiejun](https://github.com/frankiejun))
 
 
